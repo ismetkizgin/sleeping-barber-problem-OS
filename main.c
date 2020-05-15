@@ -14,8 +14,7 @@ sem_t sem_barber;
 int num_chairs;
 int clientWait;
 int main(int argc, char *argv[]) {
-	pthread_t barberid;
-	pthread_t clientids[MAX];
+	
 
 	printf("Main thread beginning\n");
    /* 1. Get command line arguments */
@@ -25,10 +24,15 @@ int main(int argc, char *argv[]) {
 	   printf("<Number of chairs> <Client wait time>\n");
 	   exit(0);
    }
+   
+   clientWait = 1;
    runTime = 10;
    clients = atoi(argv[1]);
    num_chairs = 5;
-   clientWait = 1;
+   
+   pthread_t barberid;
+   pthread_t clientids[clients];
+
    /* 2. Initialize semaphores */
    sem_init(&chairs_mutex,0,1);
    sem_init(&sem_client,0,0);
