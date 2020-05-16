@@ -4,157 +4,157 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define KESME_SURESI 1 /* Saç kesme için kullanılacak süre */
+#define CUT_TIME 1 /* Time to use for hair cutting */
 
-/* semaforlar */
-sem_t berberler;  /* berberler için semafor */
-sem_t musteriler; /* müşteriler için semafor */
-sem_t mutex;      /* berber koltuğuna karşılıklı münhasır erişim sağlar */
+/* semaphores */
+sem_t barbers;  /* semaphore for barber */
+sem_t customers; /* semaphore for customers */
+sem_t mutex;      /* lock for barber's chair */
 
-/* fonksiyonlar */
-void ip_berber(void *sayi);
-void ip_musteri(void *sayi);
-void bekle();
+/* function */
+void ip_barber(void *count);
+void ip_customer(void *count);
+void someSleep();
 
-/* değişkenler */
-int koltukSayisi = 0;          /* berber koltuğu sayısı */
-int musteriSayisi = 0;         /* müşteri sayısı */
-int sandalyeSayisi = 0;        /* bekleme odasındaki sandalye sayısı */
-int bosSandalyeSayisi = 0;     /* bekleme odasındaki boş sandalye sayısı */
-int hizmetEdilecekMusteri = 0; /* hizmet edilecek müşteri kimliği */
-int oturulacakSandalye = 0;    /* müşterinin oturacağı sandalye kimliği */
-int *koltuk;                   /* berber - müşteri arasında kimlik takası için */
+/* variable */
+int numberOfBarberChair = 0;          /* number of barber chair */
+int numberOfCustomer = 0;         /* number of customers */
+int numberOfChair = 0;        /* number of chairs in waiting room */
+int numberOfEmptyChair = 0;     /* number of empty chairs in waiting room */
+int activeCustomer = 0; /* active customer id */
+int chairId = 0;    /* chair id */
+int *chair;                   /* identity exchange between the barber and customer */
 
 int main(int argc, char **args)
 {
    if (argc != 2)
    {
-      printf("\nKullanım Hatası!\nKullanım Şekli:\t uyuyan-berber <Müşteri Sayısı> <Sandalye Sayısı> <Koltuk Sayısı>\n\n");
+      printf("\nFail!!! \nTry again like this : sh start.sh\n\n");
       return EXIT_FAILURE;
    }
 
-   musteriSayisi = atoi(args[1]);
-   sandalyeSayisi = 5;
-   koltukSayisi = 1;
-   bosSandalyeSayisi = sandalyeSayisi;
-   koltuk = (int *)malloc(sizeof(int) * sandalyeSayisi);
+   numberOfCustomer = atoi(args[1]);
+   numberOfChair = 5;
+   numberOfBarberChair = 1;
+   numberOfEmptyChair = numberOfChair;
+   chair = (int *)malloc(sizeof(int) * numberOfChair);
 
-   printf("\n\nGirilen Müşteri Sayısı:\t\t%d", musteriSayisi);
-   printf("\nBekleme Salonu Kontenjanı:\t%d", sandalyeSayisi);
-   printf("\nBerber Sayısı:\t%d\n\n", koltukSayisi);
+   printf("\n\nNumber of customer entered:\t\t%d", numberOfCustomer);
+   printf("\nWaiting room size:\t%d", numberOfChair);
+   printf("\nNumber of barber:\t%d\n\n", numberOfBarberChair);
 
-   pthread_t berber[koltukSayisi], musteri[musteriSayisi]; /* iş parçaları */
+   pthread_t barber[numberOfBarberChair], customer[numberOfCustomer]; /*threads */
 
-   /* semaforların oluşturulması */
-   sem_init(&berberler, 0, 0);
-   sem_init(&musteriler, 0, 0);
+   /* create semaphore */
+   sem_init(&barbers, 0, 0);
+   sem_init(&customers, 0, 0);
    sem_init(&mutex, 0, 1);
 
-   printf("\nBerber dükkanı açıldı.\n\n");
+   printf("\nBarber shop opened.\n\n");
 
-   /* berber iş parçalarının oluşturulması */
-   for (int i = 0; i < koltukSayisi; i++)
+   /* create barber threads */
+   for (int i = 0; i < numberOfBarberChair; i++)
    {
-      pthread_create(&berber[i], NULL, (void *)ip_berber, (void *)&i);
+      pthread_create(&barber[i], NULL, (void *)ip_barber, (void *)&i);
       sleep(1);
    }
 
-   /* müşteri iş parçalarının oluşturulması */
-   for (int i = 0; i < musteriSayisi; i++)
+   /* create customers threads */
+   for (int i = 0; i < numberOfCustomer; i++)
    {
-      pthread_create(&musteri[i], NULL, (void *)ip_musteri, (void *)&i);
-      bekle(); /* müşterileri rastgele aralıklarda oluşturmak için */
+      pthread_create(&customer[i], NULL, (void *)ip_customer, (void *)&i);
+      someSleep(); /* create customers at random intervals  */
    }
 
-   /* dükkanı kapatmadan önce tüm müşteriler ile ilgilen */
-   for (int i = 0; i < musteriSayisi; i++)
+   /* take care with all customers before closing shop */
+   for (int i = 0; i < numberOfCustomer; i++)
    {
-      pthread_join(musteri[i], NULL);
+      pthread_join(customer[i], NULL);
    }
 
-   bosSandalyeSayisi = -1;
-   sleep(KESME_SURESI);
-   printf("\nTüm müşterilere hizmet verildi. Berber dükkanı kapandı. Berberler dükkandan ayrıldı.\n\n");
+   numberOfEmptyChair = -1;
+   sleep(CUT_TIME);
+   printf("\nAll customers are done. Shop closed. Barber leaving.\n\n");
    
    return EXIT_SUCCESS;
 }
 
-void ip_berber(void *sayi)
+void ip_barber(void *count)
 {
-   int s = *(int *)sayi + 1;
-   int sonrakiMusteri, musteri_kimligi;
+   int s = *(int *)count + 1;
+   int nextCustomer, customer_identity;
 
-   printf("[Berber]\tdükkana geldi.\n");
-   //printf("[Berber]\tuyumaya gitti.\n\n");
+   printf("[Barber]\tcomes to shop.\n");
+   //printf("[Barber]\tuyumaya gitti.\n\n");
 
    while (1)
    {
 
-      if (bosSandalyeSayisi == 5 && bosSandalyeSayisi != -1)
+      if (numberOfEmptyChair == 5 && numberOfEmptyChair != -1)
       {
-         printf("[Berber]\tuyumaya gitti.\n\n");
+         printf("[Barber]\tgoes to sleep.\n\n");
       }
 
-      sem_wait(&berberler); /* uyuyan berberlerin kuyruğuna katıl */
-      sem_wait(&mutex);     /* koltuğa erişimi kilitle */
+      sem_wait(&barbers); /* barber do sleep */
+      sem_wait(&mutex);     /* lock the chair */
 
-      /* hizmet edilecek müşterinin bekleyenlerin arasından seçilmesi */
-      hizmetEdilecekMusteri = (++hizmetEdilecekMusteri) % sandalyeSayisi;
-      sonrakiMusteri = hizmetEdilecekMusteri;
-      musteri_kimligi = koltuk[sonrakiMusteri];
-      koltuk[sonrakiMusteri] = pthread_self();
+      /* choice customer for cut hair */
+      activeCustomer = (++activeCustomer) % numberOfChair;
+      nextCustomer = activeCustomer;
+      customer_identity = chair[nextCustomer];
+      chair[nextCustomer] = pthread_self();
 
-      sem_post(&mutex);      /* koltuğa erişim kilidini kaldır */
-      sem_post(&musteriler); /* seçilen müşteriyle ilgilen */
+      sem_post(&mutex);      /* unlock chair */
+      sem_post(&customers); /* take care of selected customer */
 
-      printf("[Berber]\t%d. müşterinin saçını kesmeye başladı.\n\n", musteri_kimligi);
-      sleep(KESME_SURESI);
-      printf("[Berber]\t%d. müşterinin saçını kesmeyi bitirdi.\n\n", musteri_kimligi);
+      printf("[Barber]\t%d. cutting.\n\n", customer_identity);
+      sleep(CUT_TIME);
+      printf("[Barber]\t%d. done job.\n\n", customer_identity);
    }
 }
 
-void ip_musteri(void *sayi)
+void ip_customer(void *count)
 {
-   int s = *(int *)sayi + 1;
-   int oturulanSandalye, berber_kimligi;
+   int s = *(int *)count + 1;
+   int activeChair, barber_identity;
 
-   sem_wait(&mutex); /* koltuğu korumak için erişimi kilitle */
+   sem_wait(&mutex); /* lock chair */
 
-   printf("[Müşteri: %d]\tdükkana geldi.\n", s);
+   printf("[Customer: %d]\tcomes to shop.\n", s);
 
-   /* bekleme odasında boş sandalye varsa */
-   if (bosSandalyeSayisi > 0)
+   /* if there are empty chairs in the waiting room*/
+   if (numberOfEmptyChair > 0)
    {
-      bosSandalyeSayisi--;
+      numberOfEmptyChair--;
 
-      printf("[Müşteri: %d]\tbekleme salonunda bekliyor.\n\n", s);
+      printf("[Customer: %d]\twaiting in waiting room.\n\n", s);
 
-      /* bekleme salonundan bir sandalye seçip otur */
-      oturulacakSandalye = (++oturulacakSandalye) % sandalyeSayisi;
-      oturulanSandalye = oturulacakSandalye;
-      koltuk[oturulanSandalye] = s;
+      /* select one empty chair and sit */
+      chairId = (++chairId) % numberOfChair;
+      activeChair = chairId;
+      chair[activeChair] = s;
 
-      sem_post(&mutex);     /* koltuğa erişim kilidini kaldır */
-      sem_post(&berberler); /* uygun berberi uyandır */
+      sem_post(&mutex);     /* unlock chair */
+      sem_post(&barbers); /* wake up barber */
 
-      sem_wait(&musteriler); /* bekleyen müşteriler kuyruğuna katıl */
-      sem_wait(&mutex);      /* koltuğu korumak için erişimi kilitle */
+      sem_wait(&customers); /* join the waiting customers tail */
+      sem_wait(&mutex);      /* lock chair */
 
-      /* berber koltuğuna geç */
-      berber_kimligi = koltuk[oturulanSandalye];
-      bosSandalyeSayisi++;
+      /* sit barber chair */
+      barber_identity = chair[activeChair];
+      numberOfEmptyChair++;
 
-      sem_post(&mutex); /* koltuğa erişim kilidini kaldır */
+      sem_post(&mutex); /* unlock chair */
    }
    else
    {
-      sem_post(&mutex); /* koltuğa erişim kilidini kaldır */
-      printf("[Müşteri: %d]\tbekleme salonunda yer bulamadı. Dükkandan ayrılıyor.\n\n", s);
+      sem_post(&mutex); /* unlock access chair */
+      printf("[Customer: %d]\tempty chair not found in waiting room. Customer leaves the room.\n\n", s);
    }
    pthread_exit(0);
 }
 
-void bekle()
+void someSleep()
 {
    srand((unsigned int)time(NULL));
    usleep(rand() % (250000 - 50000 + 1) + 50000); /* 50000 - 250000 ms */
