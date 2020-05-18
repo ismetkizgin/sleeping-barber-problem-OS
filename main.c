@@ -85,7 +85,6 @@ void ip_barber(void *count)
    int nextCustomer, customer_identity;
 
    printf("[Barber]\tcomes to shop.\n");
-   //printf("[Barber]\tuyumaya gitti.\n\n");
 
    while (1)
    {
