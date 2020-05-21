@@ -7,23 +7,23 @@
 #define CUT_TIME 1 /* Time to use for hair cutting */
 
 /* semaphores */
-sem_t barbers;  /* semaphore for barber */
+sem_t barbers;   /* semaphore for barber */
 sem_t customers; /* semaphore for customers */
-sem_t mutex;      /* lock for barber's chair */
+sem_t mutex;     /* lock for barber's chair */
 
 /* function */
-void ip_barber(void *count);
+void ip_barber();
 void ip_customer(void *count);
 void someSleep();
 
 /* variable */
-int numberOfBarberChair = 0;          /* number of barber chair */
-int numberOfCustomer = 0;         /* number of customers */
-int numberOfChair = 0;        /* number of chairs in waiting room */
-int numberOfEmptyChair = 0;     /* number of empty chairs in waiting room */
-int activeCustomer = 0; /* active customer id */
-int chairId = 0;    /* chair id */
-int *chair;                   /* identity exchange between the barber and customer */
+int numberOfBarberChair = 0; /* number of barber chair */
+int numberOfCustomer = 0;    /* number of customers */
+int numberOfChair = 0;       /* number of chairs in waiting room */
+int numberOfEmptyChair = 0;  /* number of empty chairs in waiting room */
+int activeCustomer = 0;      /* active customer id */
+int chairId = 0;             /* chair id */
+int *chair;                  /* identity exchange between the barber and customer */
 
 int main(int argc, char **args)
 {
@@ -75,13 +75,12 @@ int main(int argc, char **args)
    numberOfEmptyChair = -1;
    sleep(CUT_TIME);
    printf("\nAll customers are done. Shop closed. Barber leaving.\n\n");
-   
+
    return EXIT_SUCCESS;
 }
 
-void ip_barber(void *count)
+void ip_barber()
 {
-   int s = *(int *)count + 1;
    int nextCustomer, customer_identity;
 
    printf("[Barber]\tcomes to shop.\n");
@@ -95,7 +94,7 @@ void ip_barber(void *count)
       }
 
       sem_wait(&barbers); /* barber do sleep */
-      sem_wait(&mutex);     /* lock the chair */
+      sem_wait(&mutex);   /* lock the chair */
 
       /* choice customer for cut hair */
       activeCustomer = (++activeCustomer) % numberOfChair;
@@ -103,7 +102,7 @@ void ip_barber(void *count)
       customer_identity = chair[nextCustomer];
       chair[nextCustomer] = pthread_self();
 
-      sem_post(&mutex);      /* unlock chair */
+      sem_post(&mutex);     /* unlock chair */
       sem_post(&customers); /* take care of selected customer */
 
       printf("[Barber]\t%d. cutting.\n\n", customer_identity);
@@ -133,11 +132,11 @@ void ip_customer(void *count)
       activeChair = chairId;
       chair[activeChair] = s;
 
-      sem_post(&mutex);     /* unlock chair */
+      sem_post(&mutex);   /* unlock chair */
       sem_post(&barbers); /* wake up barber */
 
       sem_wait(&customers); /* join the waiting customers tail */
-      sem_wait(&mutex);      /* lock chair */
+      sem_wait(&mutex);     /* lock chair */
 
       /* sit barber chair */
       barber_identity = chair[activeChair];
